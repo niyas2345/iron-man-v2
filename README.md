@@ -18,7 +18,19 @@ Useful endpoints:
 - `POST /api/iron-man/tasks` - create and route a task.
 - `GET /api/system/capabilities` - list capability contracts.
 - `GET /api/system/migration/gcp` - GCP migration readiness.
+- `GET /api/system/legacy-blueprint` - recovered Thor/Loki operating rules for Iron Man V2.
 - `POST /api/voice/sessions` - open a realtime transcript-first voice session.
+- `GET /api/shortcuts/ask-iron-man.jelly` - ready-to-paste Jellycuts source for the iPhone voice shortcut.
+
+## Recovered Thor/Loki Blueprint
+
+The earlier Thor/Loki files are preserved as design lineage:
+
+- Iron Man is the single coordinator the user talks to.
+- Loki is the first specialist pattern for documents, coding, operations, shortcuts, and validation.
+- Voice, Shortcuts, Jellycuts, web, Mac, and container interfaces are adapters around the core.
+- External writes, sends, deletes, imports, installs, signing, publishing, payments, and irreversible changes must pause for explicit approval.
+- The system reports implemented and planned features separately.
 
 ## Configure Antigravity
 

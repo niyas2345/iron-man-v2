@@ -21,7 +21,7 @@ RUN set -eux; \
     cp /src/crm.py app/business/crm.py; \
     cp /src/finance.py app/business/finance.py; \
     cp /src/actions_catalog.json app/data/actions_catalog.json; \
-    for f in action_mapper.py add_new_task_builder.py agent_interface.py apple_notes.py approval_engine.py approval_notifications.py capabilities.py communication_adapter.py conversation.py execution_backends.py executive_engine.py fallback_engine.py iron_man_orchestrator.py llm_service.py memory_store.py phone_push.py planner.py quality_gate.py shortcut_file_builder.py signing_client.py verifier.py voice_interface.py voice_pipeline.py workflow_engine.py; do cp /src/$f app/services/$f; done; \
+    for f in action_mapper.py add_new_task_builder.py agent_interface.py apple_notes.py approval_engine.py approval_notifications.py capabilities.py communication_adapter.py conversation.py execution_backends.py executive_engine.py fallback_engine.py iron_man_orchestrator.py jellycuts_builder.py legacy_blueprint.py llm_service.py memory_store.py phone_push.py planner.py quality_gate.py shortcut_file_builder.py signing_client.py verifier.py voice_interface.py voice_pipeline.py workflow_engine.py; do cp /src/$f app/services/$f; done; \
     for f in iron_man.py shortcuts.py system.py voice.py; do [ -f /src/$f ] && cp /src/$f app/routers/$f || printf 'from fastapi import APIRouter\nrouter = APIRouter()\n' > app/routers/$f; done; \
     [ -d /src/data ] && cp -R /src/data/. data/ || true
 

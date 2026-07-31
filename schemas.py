@@ -85,6 +85,26 @@ class ShortcutBuildResponse(BaseModel):
     raw_workflow: Workflow
 
 
+class JellycutsBuildRequest(BaseModel):
+    name: str = Field(default="Ask Iron Man", min_length=1, max_length=80)
+    command_prompt: str = Field(default="What should Iron Man do?", min_length=3, max_length=200)
+    service_url: Optional[str] = Field(default=None)
+    priority: str = Field(default="normal", pattern="^(low|normal|high)$")
+    confirmation_text: str = Field(
+        default="Iron Man received your command.",
+        min_length=1,
+        max_length=200,
+    )
+
+
+class JellycutsBuildResponse(BaseModel):
+    name: str
+    format: str = "jellycuts"
+    endpoint: str
+    jellycuts: str
+    install_steps: List[str] = Field(default_factory=list)
+
+
 # --------------------------------------------------------------------------
 # Iron Man orchestration contracts
 # --------------------------------------------------------------------------
@@ -184,3 +204,21 @@ class CloudMigrationStatus(BaseModel):
     implemented: List[str] = Field(default_factory=list)
     blocked_by: List[str] = Field(default_factory=list)
     live_components: List[str] = Field(default_factory=list)
+
+
+class SpecialistBlueprintRecord(BaseModel):
+    name: str
+    remit: str
+    capabilities: List[str] = Field(default_factory=list)
+    report_fields: List[str] = Field(default_factory=list)
+
+
+class LegacyBlueprintRecord(BaseModel):
+    source_names: List[str] = Field(default_factory=list)
+    orchestration_rule: str
+    adapter_rule: str
+    approval_rule: str
+    blocked_rule: str
+    live: List[str] = Field(default_factory=list)
+    planned: List[str] = Field(default_factory=list)
+    specialists: List[SpecialistBlueprintRecord] = Field(default_factory=list)

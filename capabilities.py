@@ -84,6 +84,13 @@ def default_registry() -> CapabilityRegistry:
             backend_hints=("google_speech", "local_transcript"),
         ),
         Capability(
+            "shortcut_automation",
+            CapabilityKind.VOICE,
+            "Generate Jellycuts and Apple Shortcuts handoff flows for iPhone voice commands.",
+            required_permissions=("iphone_shortcuts",),
+            backend_hints=("jellycuts", "apple_shortcuts"),
+        ),
+        Capability(
             "task_memory",
             CapabilityKind.MEMORY,
             "Persist task records, events, dependencies, and audit trail.",

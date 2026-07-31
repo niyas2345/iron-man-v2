@@ -15,6 +15,8 @@
 - Local deterministic execution remains as a fallback until Antigravity credentials are configured.
 - Memory now writes a versioned envelope that can be replaced by a Firestore adapter.
 - Realtime voice is transcript-first, with session events exposed by `/api/voice`.
+- Thor/Loki legacy files were reviewed and distilled into `app/services/legacy_blueprint.py`.
+- Jellycuts is now treated as a supported shortcut automation adapter, not a separate orchestration layer.
 
 ## AWS To Google Cloud Migration
 
