@@ -5,10 +5,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8080
 
 WORKDIR /app
-COPY . /src
+
+# Copy requirements early so Docker can cache dependency installation
+COPY requirements.txt /src/requirements.txt
 
 RUN pip install --no-cache-dir -r /src/requirements.txt
 
+# Copy the full source after installing dependencies
+COPY . /src
+
+# Move or create the app package inside /app. This keeps the runtime layout stable
 RUN python - <<'PY'
 from pathlib import Path
 import shutil
