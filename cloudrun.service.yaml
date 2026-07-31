@@ -1,0 +1,25 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: iron-man-v2
+  annotations:
+    run.googleapis.com/ingress: all
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: "0"
+        autoscaling.knative.dev/maxScale: "3"
+    spec:
+      containerConcurrency: 20
+      containers:
+        - image: gcr.io/PROJECT_ID/iron-man-v2:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: IRON_MAN_MEMORY_PATH
+              value: /tmp/iron_man_tasks.json
+            - name: EXECUTION_BACKEND
+              value: antigravity
+            - name: GCP_TARGET
+              value: cloud-run

@@ -1,0 +1,170 @@
+[
+  {
+    "identifier": "is.workflow.actions.gettext",
+    "name": "Text",
+    "category": "Text",
+    "keywords": ["static text", "define text", "write a note", "custom text string", "plain text value"],
+    "default_parameters": {"WFTextActionText": ""},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.ask",
+    "name": "Ask for Input",
+    "category": "Scripting",
+    "keywords": ["ask", "user input", "prompt", "get input", "collect input", "request input", "search term", "song name", "query"],
+    "default_parameters": {"WFAskActionPrompt": "", "WFInputType": "Text"},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.setvariable",
+    "name": "Set Variable",
+    "category": "Variables",
+    "keywords": ["set variable", "store", "save value", "assign"],
+    "default_parameters": {"WFVariableName": ""},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.getvariable",
+    "name": "Get Variable",
+    "category": "Variables",
+    "keywords": ["get variable", "retrieve value", "read variable"],
+    "default_parameters": {"WFVariableName": ""},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.downloadurl",
+    "name": "Get Contents of URL",
+    "category": "Web",
+    "keywords": ["fetch", "download", "api call", "http request", "get contents", "web request", "call api", "lyrics api", "fetch data", "retrieve from internet", "search online"],
+    "default_parameters": {"WFURL": "", "WFHTTPMethod": "GET", "WFHTTPHeaders": {}},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.detect.dictionary",
+    "name": "Get Dictionary Value",
+    "category": "Scripting",
+    "keywords": ["parse json", "extract field", "get value from response", "json key", "dictionary value"],
+    "default_parameters": {"WFDictionaryKey": ""},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.detect.text",
+    "name": "Get Text from Input",
+    "category": "Text",
+    "keywords": ["extract text", "get text", "detect text", "parse text"],
+    "default_parameters": {},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.music.getnowplaying",
+    "name": "Get Currently Playing Song",
+    "category": "Media",
+    "keywords": ["current song", "now playing", "currently playing song", "playing music", "detect song"],
+    "default_parameters": {},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.shazamMedia",
+    "name": "Shazam",
+    "category": "Media",
+    "keywords": ["identify song", "shazam", "recognize music", "what song is playing"],
+    "default_parameters": {},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.showresult",
+    "name": "Show Result",
+    "category": "Scripting",
+    "keywords": ["display", "show", "output", "present result", "show text", "show lyrics", "reveal"],
+    "default_parameters": {"Text": ""},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.speaktext",
+    "name": "Speak Text",
+    "category": "Media",
+    "keywords": ["speak", "read aloud", "text to speech", "say"],
+    "default_parameters": {"WFText": "", "WFSpeakTextLanguage": "en-US"},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.notification",
+    "name": "Show Notification",
+    "category": "Notifications",
+    "keywords": ["notify", "notification", "alert", "push notification"],
+    "default_parameters": {"WFNotificationActionTitle": "", "WFNotificationActionBody": ""},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.conditional",
+    "name": "If",
+    "category": "Scripting",
+    "keywords": ["if", "condition", "check", "branch", "decide", "compare"],
+    "default_parameters": {"WFCondition": "Equals", "WFConditionalActionString": ""},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.repeat.count",
+    "name": "Repeat",
+    "category": "Scripting",
+    "keywords": ["repeat", "loop", "for each", "iterate"],
+    "default_parameters": {"WFRepeatCount": 1},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.exit",
+    "name": "Stop This Shortcut",
+    "category": "Scripting",
+    "keywords": ["stop", "exit", "end shortcut", "cancel", "no result found", "error"],
+    "default_parameters": {},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.replacetext",
+    "name": "Replace Text",
+    "category": "Text",
+    "keywords": ["replace text", "clean text", "strip", "format text", "remove characters"],
+    "default_parameters": {"WFReplaceTextFind": "", "WFReplaceTextReplace": ""},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.gettext.encoded",
+    "name": "URL Encode",
+    "category": "Web",
+    "keywords": ["url encode", "encode query", "encode text for url"],
+    "default_parameters": {},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.documentpicker.save",
+    "name": "Save File",
+    "category": "Documents",
+    "keywords": ["save file", "save document", "write to file", "export"],
+    "default_parameters": {"WFFileDestinationPath": ""},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.copytopasteboard",
+    "name": "Copy to Clipboard",
+    "category": "Scripting",
+    "keywords": ["copy", "clipboard", "paste"],
+    "default_parameters": {},
+    "supports_export": true
+  },
+  {
+    "identifier": "is.workflow.actions.sharesheet",
+    "name": "Share",
+    "category": "Sharing",
+    "keywords": ["share", "send to", "airdrop", "export share sheet"],
+    "default_parameters": {},
+    "supports_export": false
+  },
+  {
+    "identifier": "is.workflow.actions.comment",
+    "name": "Comment",
+    "category": "Scripting",
+    "keywords": ["comment", "note to self", "placeholder"],
+    "default_parameters": {"WFCommentActionText": ""},
+    "supports_export": true
+  }
+]
