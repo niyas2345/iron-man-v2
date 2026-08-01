@@ -1,23 +1,34 @@
 """
-AI Shortcut Assistant -- backend engine entrypoint.
+AI Shortcut Assistant -- backend engine entrypoint with defensive startup logging.
 
-Run locally with:
-    uvicorn app.main:app --reload --port 8000
-
-Then try:
-    curl -X POST http://localhost:8000/api/generate-shortcut \\
-         -H "Content-Type: application/json" \\
-         -d '{"description": "Fetch me the lyrics of a song and display it"}'
+This wraps router imports with a try/except that prints a full traceback to
+stderr if an import-time error occurs. That makes Cloud Run capture the Python
+traceback in logs so we can diagnose failures that cause the container to exit
+before listening on PORT.
 """
 from __future__ import annotations
 
 import logging
+import sys
+import time
+import traceback
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import iron_man, shortcuts, system, voice
+
+# Import routers defensively so any import-time exceptions are logged clearly.
+try:
+    from app.routers import iron_man, shortcuts, system, voice
+except Exception:
+    # Print a full traceback to stderr so Cloud Run logs capture it.
+    traceback.print_exc()
+    print("--- Startup import failed. Sleeping briefly to ensure logs are delivered. ---", file=sys.stderr)
+    # Sleep a short time to make logs visible in Cloud Run before the process exits.
+    time.sleep(5)
+    # Re-raise to let the process exit with a non-zero status (Cloud Run will report failure).
+    raise
 
 logging.basicConfig(level=logging.INFO)
 
@@ -37,6 +48,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Include routers (these imports are done above defensively)
 app.include_router(shortcuts.router)
 app.include_router(iron_man.router)
 app.include_router(voice.router)
