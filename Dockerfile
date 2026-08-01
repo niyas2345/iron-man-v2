@@ -26,10 +26,9 @@ RUN set -eux; \
     for f in iron_man.py shortcuts.py system.py voice.py; do [ -f /src/$f ] && cp /src/$f app/routers/$f || printf 'from fastapi import APIRouter\nrouter = APIRouter()\n' > app/routers/$f; done; \
     [ -d /src/data ] && cp -R /src/data/. data/ || true
 
-RUN python - <<'PY'
-import app.main
-print("startup import ok")
-PY
+COPY check_startup.py /app/check_startup.py
+
+RUN python3 /app/check_startup.py
 
 EXPOSE 8080
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]
