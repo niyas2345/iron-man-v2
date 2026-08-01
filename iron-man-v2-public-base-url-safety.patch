@@ -1,0 +1,93 @@
+From 673b71cecb444ae7df7e96a6a6f65f472887270c Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sat, 1 Aug 2026 03:57:25 +0200
+Subject: [PATCH] Safety: prefer request base URL for generated artifacts
+
+---
+ config.py                |  9 +++++++++
+ iron_man.py              |  2 +-
+ iron_man_orchestrator.py | 10 ++++++----
+ 3 files changed, 16 insertions(+), 5 deletions(-)
+
+diff --git a/config.py b/config.py
+index df7fcb9..615850a 100644
+--- a/config.py
++++ b/config.py
+@@ -36,6 +36,15 @@ class Settings:
+     gcp_region: str = os.getenv("GCP_REGION", "us-central1")
+     antigravity_endpoint: str = os.getenv("ANTIGRAVITY_ENDPOINT", "")
+ 
++    # --- Public URL ---
++    # Used when generating outward-facing artifacts such as shortcuts.
++    # Routers pass the live request base URL first; this setting is the
++    # deployment fallback when generation happens outside an HTTP request.
++    public_base_url: str = os.getenv(
++        "PUBLIC_BASE_URL",
++        "https://iron-man-v2-761020604913.me-central1.run.app",
++    )
++
+     # --- Mapping settings ---
+     # Minimum fuzzy-match confidence (0-1) before we accept a catalog action
+     # as a match for a workflow step. Below this we fall back to a generic
+diff --git a/iron_man.py b/iron_man.py
+index 8fadfc9..ef4dadd 100644
+--- a/iron_man.py
++++ b/iron_man.py
+@@ -17,7 +17,7 @@ def create_task(request: IronManTaskRequest, http_request: HttpRequest) -> IronM
+         request.context,
+         request.priority,
+         request.dependencies,
+-        base_url=str(http_request.base_url),
++        base_url=str(http_request.base_url).rstrip("/"),
+     )
+     return IronManTaskResponse(
+         task=IronManTaskRecord.model_validate(task),
+diff --git a/iron_man_orchestrator.py b/iron_man_orchestrator.py
+index 8607814..d2c9db6 100644
+--- a/iron_man_orchestrator.py
++++ b/iron_man_orchestrator.py
+@@ -27,6 +27,7 @@ from app.models.schemas import JellycutsBuildRequest
+ DOCUMENT_KEYWORDS = {"boq", "quotation", "invoice", "agreement", "contract", "report", "submittal", "tender", "folder", "document", "proposal", "scope"}
+ CODING_KEYWORDS = {"code", "api", "app", "script", "build", "bug", "test", "server", "database", "automation", "shortcut", "integration", "repository"}
+ SHORTCUT_HINTS = {"shortcut", "shortcuts", "jellycuts", "jellycut", "siri", "iphone"}
++DEFAULT_PUBLIC_BASE_URL = "https://iron-man-v2-761020604913.me-central1.run.app"
+ DEFAULT_MEMORY_PATH = Path(settings.memory_path)
+ if not DEFAULT_MEMORY_PATH.is_absolute():
+     DEFAULT_MEMORY_PATH = Path(__file__).resolve().parents[2] / DEFAULT_MEMORY_PATH
+@@ -150,11 +151,12 @@ class IronManOrchestrator:
+         context: str | None = None,
+         priority: str = "normal",
+         dependencies: list[str] | None = None,
+-        base_url: str = "https://iron-man-v2-761020604913.me-central1.run.app",
++        base_url: str | None = None,
+     ) -> TaskRecord:
+         if priority not in {"low", "normal", "high"}:
+             raise ValueError("priority must be low, normal, or high")
+         classification = self.classify(request, context)
++        used_base_url = (base_url or settings.public_base_url or DEFAULT_PUBLIC_BASE_URL).rstrip("/")
+         assessment = executive_engine.assess(request, classification)
+         dependencies = dependencies or []
+         task_id = f"iron-man-{uuid4().hex[:8]}"
+@@ -175,8 +177,8 @@ class IronManOrchestrator:
+         capability_names = [capability.name for capability in capabilities]
+         if "shortcut_automation" in capability_names:
+             shortcut = jellycuts_builder.build_voice_task_shortcut(
+-                JellycutsBuildRequest(service_url=base_url, priority=priority),
+-                base_url,
++                JellycutsBuildRequest(service_url=used_base_url, priority=priority),
++                used_base_url,
+             )
+             artifacts["jellycuts"] = shortcut.jellycuts
+             artifacts["jellycuts_endpoint"] = shortcut.endpoint
+@@ -186,7 +188,7 @@ class IronManOrchestrator:
+             handoff = jellycuts_builder.build_task_handoff_shortcut(
+                 request,
+                 priority,
+-                base_url,
++                used_base_url,
+             )
+             artifacts["iphone_handoff_jellycuts"] = handoff.jellycuts
+             artifacts["iphone_handoff_endpoint"] = handoff.endpoint
+-- 
+2.51.1
+
