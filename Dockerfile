@@ -7,7 +7,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY requirements.txt /src/requirements.txt
-RUN pip install --no-cache-dir -r /src/requirements.txt
+# Upgrade pip/setuptools/wheel first to ensure compiled wheels (grpcio, etc.) install cleanly
+RUN pip install --upgrade pip setuptools wheel && pip install --no-cache-dir -r /src/requirements.txt
 
 COPY . /src
 
