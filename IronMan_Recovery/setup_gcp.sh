@@ -81,6 +81,13 @@ if gcloud iam service-accounts describe "${COMPUTE_SERVICE_ACCOUNT}" \
     --role="roles/run.builder" \
     --condition=None \
     --quiet >/dev/null
+
+  gcloud iam service-accounts add-iam-policy-binding "${COMPUTE_SERVICE_ACCOUNT}" \
+    --project="${PROJECT_ID}" \
+    --member="serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}" \
+    --role="roles/iam.serviceAccountUser" \
+    --condition=None \
+    --quiet >/dev/null
 else
   echo "Compute default service account is not ready yet." >&2
   echo "Wait one minute, then run this script again." >&2
