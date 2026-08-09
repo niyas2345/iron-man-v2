@@ -1,0 +1,110 @@
+name: IronMan Recovery
+
+on:
+  pull_request:
+    paths:
+      - "IronMan_Recovery/**"
+      - ".github/workflows/deploy-ironman-recovery.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "IronMan_Recovery/**"
+      - ".github/workflows/deploy-ironman-recovery.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ironman-recovery-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PROJECT_ID: project-2228bebf-326d-4183-a0d
+  REGION: me-central1
+  SERVICE: ironman-recovery
+  RUNTIME_SERVICE_ACCOUNT: ironman-core-runtime@project-2228bebf-326d-4183-a0d.iam.gserviceaccount.com
+  DEPLOYER_SERVICE_ACCOUNT: github-ironman-deployer@project-2228bebf-326d-4183-a0d.iam.gserviceaccount.com
+  WORKLOAD_IDENTITY_PROVIDER: projects/761020604913/locations/global/workloadIdentityPools/github/providers/ironman-recovery
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: IronMan_Recovery/requirements.txt
+
+      - name: Install recovery dependencies
+        run: python -m pip install -r IronMan_Recovery/requirements.txt
+
+      - name: Run recovery tests
+        run: python -m unittest IronMan_Recovery.test_recovery -v
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.DEPLOYER_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Deploy recovery service
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v3
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+          region: ${{ env.REGION }}
+          service: ${{ env.SERVICE }}
+          source: ./IronMan_Recovery
+          secrets: |-
+            IRONMAN_API_TOKEN=ironman-api-token:latest
+          env_vars: |-
+            IRONMAN_APP_NAME=IronMan Recovery
+            IRONMAN_APP_VERSION=${{ github.sha }}
+            IRONMAN_MEMORY_TURNS=8
+          flags: >-
+            --allow-unauthenticated
+            --ingress=all
+            --service-account=${{ env.RUNTIME_SERVICE_ACCOUNT }}
+            --port=8080
+            --cpu=1
+            --memory=512Mi
+            --min-instances=0
+            --max-instances=2
+
+      - name: Verify public endpoint requires the bearer token
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          for attempt in {1..12}; do
+            status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --request POST "${SERVICE_URL}/command" \
+              --header 'Content-Type: application/json' \
+              --data '{"text":"deployment check","session_id":"github-actions"}')"
+            if [[ "${status}" == "401" ]]; then
+              echo "IronMan Recovery is online and bearer authentication is active."
+              exit 0
+            fi
+            echo "Attempt ${attempt}: expected HTTP 401, received ${status}; retrying..."
+            sleep 5
+          done
+          exit 1
