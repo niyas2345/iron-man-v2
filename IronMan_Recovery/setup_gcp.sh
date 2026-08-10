@@ -13,6 +13,7 @@ PROVIDER_ID="ironman-recovery"
 DEPLOYER_ID="github-ironman-deployer"
 RUNTIME_SERVICE_ACCOUNT="ironman-core-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 TOKEN_SECRET="ironman-api-token"
+OPENAI_SECRET="openai-api-key"
 
 DEPLOYER_SERVICE_ACCOUNT="${DEPLOYER_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
 COMPUTE_SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
@@ -117,6 +118,24 @@ for MEMBER in \
     --condition=None \
     --quiet >/dev/null
 done
+
+echo "Checking the OpenAI Realtime API-key secret..."
+if gcloud secrets describe "${OPENAI_SECRET}" \
+  --project="${PROJECT_ID}" >/dev/null 2>&1; then
+  for MEMBER in \
+    "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+    "serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}"; do
+    gcloud secrets add-iam-policy-binding "${OPENAI_SECRET}" \
+      --project="${PROJECT_ID}" \
+      --member="${MEMBER}" \
+      --role="roles/secretmanager.secretAccessor" \
+      --condition=None \
+      --quiet >/dev/null
+  done
+else
+  echo "${OPENAI_SECRET} is not configured yet."
+  echo "Run IronMan_Recovery/configure_realtime.sh after this setup completes."
+fi
 
 echo "Creating the GitHub Workload Identity pool..."
 if ! gcloud iam workload-identity-pools describe "${POOL_ID}" \

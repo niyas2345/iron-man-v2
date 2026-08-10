@@ -33,6 +33,9 @@ class Settings:
     app_version: str = "1.0.0"
     owner_name: str = "Niyas Abdeen"
     api_token: str = ""
+    openai_api_key: str = ""
+    openai_realtime_model: str = "gpt-realtime-2.1-mini"
+    openai_realtime_voice: str = "marin"
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5"
     llm_max_tokens: int = 500
@@ -50,6 +53,11 @@ settings = Settings(
     app_version=os.getenv("IRONMAN_APP_VERSION", "1.0.0"),
     owner_name=os.getenv("IRONMAN_OWNER_NAME", "Niyas Abdeen"),
     api_token=os.getenv("IRONMAN_API_TOKEN", ""),
+    openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+    openai_realtime_model=os.getenv(
+        "OPENAI_REALTIME_MODEL", "gpt-realtime-2.1-mini"
+    ),
+    openai_realtime_voice=os.getenv("OPENAI_REALTIME_VOICE", "marin"),
     anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
     anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5"),
     llm_max_tokens=_positive_int("LLM_MAX_TOKENS", 500),

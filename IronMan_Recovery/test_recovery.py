@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 from IronMan_Recovery.config import Settings
 from IronMan_Recovery.memory import ConversationMemory
@@ -73,7 +74,10 @@ class RecoveryEndpointTests(unittest.TestCase):
         assert app_module is not None
         self.original_settings = app_module.settings
         self.original_orchestrator = app_module.orchestrator
-        app_module.settings = Settings(api_token="recovery-token")
+        app_module.settings = Settings(
+            api_token="recovery-token",
+            openai_api_key="openai-test-key",
+        )
         app_module.orchestrator = IronManOrchestrator(app_module.settings)
         self.client = TestClient(app_module.app)
 
@@ -96,6 +100,41 @@ class RecoveryEndpointTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(set(payload), {"status", "reply", "speak"})
         self.assertEqual(payload["reply"], payload["speak"])
+
+    def test_voice_page_contains_no_embedded_token(self) -> None:
+        response = self.client.get("/voice")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Start voice", response.text)
+        self.assertNotIn("recovery-token", response.text)
+
+    def test_realtime_session_requires_bearer_token(self) -> None:
+        response = self.client.post(
+            "/realtime/session",
+            headers={"Content-Type": "application/sdp"},
+            content="v=0",
+        )
+        self.assertEqual(response.status_code, 401)
+
+    def test_realtime_session_proxies_sdp_answer(self) -> None:
+        original_exchange = app_module._exchange_realtime_sdp
+        exchange = AsyncMock(return_value="v=0\r\na=answer")
+        app_module._exchange_realtime_sdp = exchange
+        try:
+            response = self.client.post(
+                "/realtime/session",
+                headers={
+                    "Authorization": "Bearer recovery-token",
+                    "Content-Type": "application/sdp",
+                },
+                content="v=0\r\na=offer",
+            )
+        finally:
+            app_module._exchange_realtime_sdp = original_exchange
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.text, "v=0\r\na=answer")
+        exchange.assert_awaited_once_with("v=0\r\na=offer")
 
 
 if __name__ == "__main__":

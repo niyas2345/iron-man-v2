@@ -77,10 +77,13 @@ jobs:
           source: ./IronMan_Recovery
           secrets: |-
             IRONMAN_API_TOKEN=ironman-api-token:latest
+            OPENAI_API_KEY=openai-api-key:latest
           env_vars: |-
             IRONMAN_APP_NAME=IronMan Recovery
             IRONMAN_APP_VERSION=${{ github.sha }}
             IRONMAN_MEMORY_TURNS=8
+            OPENAI_REALTIME_MODEL=gpt-realtime-2.1-mini
+            OPENAI_REALTIME_VOICE=marin
           flags: >-
             --allow-unauthenticated
             --ingress=all
@@ -108,3 +111,8 @@ jobs:
             sleep 5
           done
           exit 1
+
+      - name: Verify Realtime voice page is online
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: curl --fail --silent --show-error "${SERVICE_URL}/voice" >/dev/null
