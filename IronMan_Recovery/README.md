@@ -1,8 +1,10 @@
 # IronMan Recovery V1
 
-This parallel app restores the smallest reliable voice loop:
+This parallel app supports two voice loops over the same orchestrator:
 
 `Siri Dictate Text -> POST /command -> Iron Man reply -> Siri Speak Text`
+
+`iPhone browser microphone -> Vertex AI Gemini Live -> Iron Man tool -> spoken reply`
 
 It does not import or modify the existing Iron Man application.
 
@@ -60,11 +62,28 @@ Create a shortcut named **Iron Man Voice**. Its backend URL must be reachable fr
 7. From **Contents of URL**, get dictionary value `reply` and pass only that value to **Speak Text**.
 8. Get dictionary value `status`. If it equals `offline`, add **Stop This Shortcut**.
 
+## Use live Realtime voice
+
+Open `https://YOUR-BACKEND/voice` in Safari, enter the private Iron Man token once,
+and tap **Start voice**. The page stores that token only in the iPhone browser and
+never embeds it in source. iOS requires the first microphone start to be a user tap.
+
+Gemini Live on Vertex AI is only the conversational audio interface. Its private
+function tool calls the existing Iron Man orchestrator, so Iron Man remains
+responsible for answering and executing requests. The server caps each live
+session at 15 minutes and allows one live session per Cloud Run instance.
+
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `IRONMAN_API_TOKEN` | empty | Enables Bearer authentication when set. |
+| `GOOGLE_CLOUD_PROJECT_ID` | empty | Vertex AI project used for Gemini Live. |
+| `GEMINI_LIVE_LOCATION` | `global` | Vertex AI location for Gemini Live. |
+| `GEMINI_LIVE_MODEL` | `gemini-live-2.5-flash-native-audio` | Gemini Live model. |
+| `GEMINI_LIVE_VOICE` | `Aoede` | Gemini Live voice. |
+| `GEMINI_LIVE_MAX_SECONDS` | `900` | Maximum length of one browser voice session. |
+| `GEMINI_LIVE_MAX_ACTIVE_SESSIONS` | `1` | Concurrent live sessions allowed per instance. |
 | `ANTHROPIC_API_KEY` | empty | Enables live language-model responses. |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Selects the configured Anthropic model. |
 | `IRONMAN_MEMORY_TURNS` | `8` | Maximum stored messages per session. |
@@ -98,6 +117,15 @@ The setup script:
 - reuses the existing `ironman-core-runtime` service account and `ironman-api-token` secret; and
 - creates no downloadable service-account key.
 
+Before the first Gemini Live deployment, configure the Vertex AI environment:
+
+```bash
+bash IronMan_Recovery/configure_realtime.sh
+```
+
+The script does not ask for or create an API key. Vertex AI uses the Cloud Run
+runtime service account, which receives only the Vertex AI User role.
+
 After IAM has had five minutes to propagate, merging the recovery pull request into `main` runs tests and deploys automatically. The workflow verifies that the public `/command` route returns `401` without the bearer token.
 
 To retrieve the existing token privately in Cloud Shell for the iPhone Shortcut, run:
@@ -110,4 +138,6 @@ gcloud secrets versions access latest \
 
 Do not paste the resulting value into GitHub, an issue, a pull request, or chat. Put it only in your private Jellycuts source or Apple Shortcut.
 
-V1 deliberately excludes WebSockets, Pushcut, audio streaming, and shortcut signing. Cloud deployment files package the same minimal HTTP runtime without adding cloud SDKs to the application.
+This version deliberately excludes SIP, Pushcut, and shortcut signing. Gemini Live
+audio uses a browser WebSocket bridge; cloud deployment adds no Google Cloud SDK to
+the application container.

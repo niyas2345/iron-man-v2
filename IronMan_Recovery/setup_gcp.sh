@@ -44,6 +44,7 @@ gcloud services enable \
   iamcredentials.googleapis.com \
   secretmanager.googleapis.com \
   sts.googleapis.com \
+  aiplatform.googleapis.com \
   --project="${PROJECT_ID}" \
   --quiet
 
@@ -71,6 +72,12 @@ gcloud iam service-accounts add-iam-policy-binding "${RUNTIME_SERVICE_ACCOUNT}" 
   --project="${PROJECT_ID}" \
   --member="serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}" \
   --role="roles/iam.serviceAccountUser" \
+  --condition=None \
+  --quiet >/dev/null
+
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+  --role="roles/aiplatform.user" \
   --condition=None \
   --quiet >/dev/null
 
@@ -169,4 +176,5 @@ gcloud iam service-accounts add-iam-policy-binding "${DEPLOYER_SERVICE_ACCOUNT}"
 echo
 echo "Google Cloud setup complete for ${GITHUB_REPOSITORY}."
 echo "No service-account key was created and no secret value was printed."
-echo "Wait five minutes for IAM propagation before merging the deployment PR."
+echo "Vertex AI Gemini Live uses the runtime service account; no API key is required."
+echo "Wait five minutes for IAM propagation before deploying."

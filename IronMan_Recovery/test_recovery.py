@@ -73,7 +73,9 @@ class RecoveryEndpointTests(unittest.TestCase):
         assert app_module is not None
         self.original_settings = app_module.settings
         self.original_orchestrator = app_module.orchestrator
-        app_module.settings = Settings(api_token="recovery-token")
+        app_module.settings = Settings(
+            api_token="recovery-token",
+        )
         app_module.orchestrator = IronManOrchestrator(app_module.settings)
         self.client = TestClient(app_module.app)
 
@@ -96,6 +98,23 @@ class RecoveryEndpointTests(unittest.TestCase):
         payload = response.json()
         self.assertEqual(set(payload), {"status", "reply", "speak"})
         self.assertEqual(payload["reply"], payload["speak"])
+
+    def test_voice_page_contains_no_embedded_token(self) -> None:
+        response = self.client.get("/voice")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Start voice", response.text)
+        self.assertIn("Gemini Live", response.text)
+        self.assertNotIn("recovery-token", response.text)
+
+    def test_retired_realtime_session_points_to_gemini_live(self) -> None:
+        response = self.client.post(
+            "/realtime/session",
+            headers={"Content-Type": "application/sdp"},
+            content="v=0",
+        )
+        self.assertEqual(response.status_code, 410)
+        self.assertIn("/voice", response.json()["detail"])
 
 
 if __name__ == "__main__":

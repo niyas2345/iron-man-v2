@@ -33,6 +33,12 @@ class Settings:
     app_version: str = "1.0.0"
     owner_name: str = "Niyas Abdeen"
     api_token: str = ""
+    google_cloud_project_id: str = ""
+    gemini_live_location: str = "global"
+    gemini_live_model: str = "gemini-live-2.5-flash-native-audio"
+    gemini_live_voice: str = "Aoede"
+    gemini_live_max_seconds: int = 900
+    gemini_live_max_active_sessions: int = 1
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-5"
     llm_max_tokens: int = 500
@@ -50,6 +56,18 @@ settings = Settings(
     app_version=os.getenv("IRONMAN_APP_VERSION", "1.0.0"),
     owner_name=os.getenv("IRONMAN_OWNER_NAME", "Niyas Abdeen"),
     api_token=os.getenv("IRONMAN_API_TOKEN", ""),
+    google_cloud_project_id=os.getenv(
+        "GOOGLE_CLOUD_PROJECT_ID", os.getenv("GOOGLE_CLOUD_PROJECT", "")
+    ),
+    gemini_live_location=os.getenv("GEMINI_LIVE_LOCATION", "global"),
+    gemini_live_model=os.getenv(
+        "GEMINI_LIVE_MODEL", "gemini-live-2.5-flash-native-audio"
+    ),
+    gemini_live_voice=os.getenv("GEMINI_LIVE_VOICE", "Aoede"),
+    gemini_live_max_seconds=_positive_int("GEMINI_LIVE_MAX_SECONDS", 900),
+    gemini_live_max_active_sessions=_positive_int(
+        "GEMINI_LIVE_MAX_ACTIVE_SESSIONS", 1
+    ),
     anthropic_api_key=os.getenv("ANTHROPIC_API_KEY", ""),
     anthropic_model=os.getenv("ANTHROPIC_MODEL", "claude-sonnet-5"),
     llm_max_tokens=_positive_int("LLM_MAX_TOKENS", 500),

@@ -83,6 +83,12 @@ jobs:
             IRONMAN_APP_NAME=IronMan Recovery
             IRONMAN_APP_VERSION=${{ github.sha }}
             IRONMAN_MEMORY_TURNS=8
+            GOOGLE_CLOUD_PROJECT_ID=${{ env.PROJECT_ID }}
+            GEMINI_LIVE_LOCATION=global
+            GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio
+            GEMINI_LIVE_VOICE=Aoede
+            GEMINI_LIVE_MAX_SECONDS=900
+            GEMINI_LIVE_MAX_ACTIVE_SESSIONS=1
           flags: >-
             --allow-unauthenticated
             --ingress=all
@@ -91,7 +97,8 @@ jobs:
             --cpu=1
             --memory=512Mi
             --min-instances=0
-            --max-instances=2
+            --max-instances=1
+            --timeout=900
 
       - name: Verify protected round trip
         env:
@@ -122,3 +129,8 @@ jobs:
 
           unset token
           exit 1
+
+      - name: Verify Realtime voice page is online
+        env:
+          SERVICE_URL: ${{ steps.deploy.outputs.url }}
+        run: curl --fail --silent --show-error "${SERVICE_URL}/voice" >/dev/null
