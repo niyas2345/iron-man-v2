@@ -1,8 +1,10 @@
 # IronMan Recovery V1
 
-This parallel app restores the smallest reliable voice loop:
+This parallel app supports two voice loops over the same orchestrator:
 
 `Siri Dictate Text -> POST /command -> Iron Man reply -> Siri Speak Text`
+
+`iPhone browser microphone -> OpenAI Realtime (WebRTC) -> Iron Man tool -> spoken reply`
 
 It does not import or modify the existing Iron Man application.
 
@@ -16,6 +18,7 @@ source IronMan_Recovery/.venv/bin/activate
 pip install -r IronMan_Recovery/requirements.txt
 
 export IRONMAN_API_TOKEN="replace-with-a-long-random-token"
+export OPENAI_API_KEY="replace-with-your-openai-api-key"
 export ANTHROPIC_API_KEY="replace-with-your-key"
 python -m uvicorn IronMan_Recovery.app:app --host 0.0.0.0 --port 8000
 ```
@@ -60,11 +63,24 @@ Create a shortcut named **Iron Man Voice**. Its backend URL must be reachable fr
 7. From **Contents of URL**, get dictionary value `reply` and pass only that value to **Speak Text**.
 8. Get dictionary value `status`. If it equals `offline`, add **Stop This Shortcut**.
 
+## Use live Realtime voice
+
+Open `https://YOUR-BACKEND/voice` in Safari, enter the private Iron Man token once,
+and tap **Start voice**. The page stores that token only in the iPhone browser and
+never embeds it in source. iOS requires the first microphone start to be a user tap.
+
+ChatGPT/OpenAI Realtime is only the conversational audio interface. Its private
+function tool sends tasks to the existing `/command` endpoint, so the Iron Man
+orchestrator remains responsible for answering and executing requests.
+
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `IRONMAN_API_TOKEN` | empty | Enables Bearer authentication when set. |
+| `OPENAI_API_KEY` | empty | Enables the server-created OpenAI Realtime session. |
+| `OPENAI_REALTIME_MODEL` | `gpt-realtime-2.1-mini` | Lower-cost Realtime voice interface; Iron Man still handles the work. |
+| `OPENAI_REALTIME_VOICE` | `marin` | Realtime spoken voice. |
 | `ANTHROPIC_API_KEY` | empty | Enables live language-model responses. |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Selects the configured Anthropic model. |
 | `IRONMAN_MEMORY_TURNS` | `8` | Maximum stored messages per session. |
@@ -98,6 +114,16 @@ The setup script:
 - reuses the existing `ironman-core-runtime` service account and `ironman-api-token` secret; and
 - creates no downloadable service-account key.
 
+Before the first Realtime deployment, create the API-key secret without exposing it
+in shell history:
+
+```bash
+bash IronMan_Recovery/configure_realtime.sh
+```
+
+The script prompts for the key with hidden input and grants Secret Accessor only to
+the runtime and deployment service accounts.
+
 After IAM has had five minutes to propagate, merging the recovery pull request into `main` runs tests and deploys automatically. The workflow verifies that the public `/command` route returns `401` without the bearer token.
 
 To retrieve the existing token privately in Cloud Shell for the iPhone Shortcut, run:
@@ -110,4 +136,6 @@ gcloud secrets versions access latest \
 
 Do not paste the resulting value into GitHub, an issue, a pull request, or chat. Put it only in your private Jellycuts source or Apple Shortcut.
 
-V1 deliberately excludes WebSockets, Pushcut, audio streaming, and shortcut signing. Cloud deployment files package the same minimal HTTP runtime without adding cloud SDKs to the application.
+This version deliberately excludes WebSockets, SIP, Pushcut, and shortcut signing.
+Realtime audio uses browser-native WebRTC; cloud deployment adds no Google Cloud SDK
+to the application container.

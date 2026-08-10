@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#070b12">
+  <title>Iron Man Voice</title>
+  <style>
+    :root { color-scheme: dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; background: radial-gradient(circle at top, #182538, #070b12 48%); color: #f6f8fb; }
+    main { width: min(100%, 34rem); min-height: 100vh; margin: auto; padding: max(2rem, env(safe-area-inset-top)) 1.25rem max(2rem, env(safe-area-inset-bottom)); display: grid; align-content: center; gap: 1rem; }
+    .arc { width: 5.4rem; height: 5.4rem; margin: 0 auto .4rem; border-radius: 50%; background: #bff7ff; box-shadow: 0 0 2rem #40d9ff, inset 0 0 0 .55rem #2a6685; }
+    h1, p { margin: 0; text-align: center; }
+    h1 { font-size: 2rem; letter-spacing: .02em; }
+    .subtitle { color: #aeb9c9; line-height: 1.45; }
+    .card { padding: 1rem; border: 1px solid #26364d; border-radius: 1rem; background: rgba(11, 18, 29, .88); }
+    label { display: block; margin-bottom: .45rem; color: #c8d2df; font-size: .9rem; }
+    input { width: 100%; padding: .85rem; border: 1px solid #344761; border-radius: .75rem; background: #0a101a; color: white; font-size: 1rem; }
+    .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-top: .85rem; }
+    button { min-height: 3.2rem; border: 0; border-radius: .8rem; font-size: 1rem; font-weight: 700; }
+    #start { background: #4edcff; color: #051019; }
+    #stop { background: #26364d; color: white; }
+    button:disabled { opacity: .45; }
+    #status { min-height: 1.5rem; color: #80e8ff; text-align: center; }
+    #transcript { min-height: 4.8rem; padding: .8rem; border-radius: .75rem; background: #070b12; color: #dce6f3; line-height: 1.45; white-space: pre-wrap; }
+    .privacy { color: #7f8da1; font-size: .78rem; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="arc" aria-hidden="true"></div>
+    <h1>Iron Man</h1>
+    <p class="subtitle">Live voice interface. Iron Man handles the work.</p>
+
+    <section class="card">
+      <label for="token">Private Iron Man token</label>
+      <input id="token" type="password" autocomplete="off" placeholder="Paste once on this iPhone">
+      <div class="buttons">
+        <button id="start" type="button">Start voice</button>
+        <button id="stop" type="button" disabled>Stop</button>
+      </div>
+    </section>
+
+    <p id="status" role="status">Ready</p>
+    <section id="transcript" aria-live="polite">Tap Start voice, then speak naturally.</section>
+    <p class="privacy">The token stays in this browser's local storage. Audio travels directly between this iPhone and OpenAI over WebRTC; tool requests go to your Iron Man backend.</p>
+    <audio id="remoteAudio" autoplay playsinline></audio>
+  </main>
+
+  <script>
+    const tokenInput = document.querySelector("#token");
+    const startButton = document.querySelector("#start");
+    const stopButton = document.querySelector("#stop");
+    const status = document.querySelector("#status");
+    const transcript = document.querySelector("#transcript");
+    const remoteAudio = document.querySelector("#remoteAudio");
+    const tokenStorageKey = "ironman_recovery_token";
+    let peerConnection;
+    let dataChannel;
+    let microphone;
+    const completedCalls = new Set();
+
+    tokenInput.value = localStorage.getItem(tokenStorageKey) || "";
+
+    function setStatus(message) { status.textContent = message; }
+    function sendEvent(event) {
+      if (!dataChannel || dataChannel.readyState !== "open") throw new Error("Voice channel is not ready");
+      dataChannel.send(JSON.stringify(event));
+    }
+
+    async function runIronManTool(event) {
+      if (event.name !== "ironman_command" || completedCalls.has(event.call_id)) return;
+      completedCalls.add(event.call_id);
+      setStatus("Iron Man is working…");
+
+      let args;
+      try { args = JSON.parse(event.arguments || "{}"); }
+      catch { args = {}; }
+
+      try {
+        const response = await fetch("/command", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${tokenInput.value.trim()}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            text: args.text || "Please repeat the request.",
+            session_id: args.session_id || "iphone-realtime"
+          })
+        });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || `Iron Man returned ${response.status}`);
+        transcript.textContent = result.reply;
+        sendEvent({
+          type: "conversation.item.create",
+          item: {
+            type: "function_call_output",
+            call_id: event.call_id,
+            output: JSON.stringify(result)
+          }
+        });
+        sendEvent({
+          type: "response.create",
+          response: { instructions: "Speak the tool result's `speak` field exactly, then continue listening." }
+        });
+        setStatus("Speaking");
+      } catch (error) {
+        transcript.textContent = error.message;
+        setStatus("Iron Man request failed");
+        try {
+          sendEvent({
+            type: "conversation.item.create",
+            item: {
+              type: "function_call_output",
+              call_id: event.call_id,
+              output: JSON.stringify({ status: "error", speak: "Iron Man could not complete that request." })
+            }
+          });
+          sendEvent({ type: "response.create" });
+        } catch {}
+      }
+    }
+
+    function handleRealtimeEvent(message) {
+      let event;
+      try { event = JSON.parse(message.data); } catch { return; }
+      if (event.type === "response.function_call_arguments.done") runIronManTool(event);
+      if (event.type === "response.done") setStatus("Listening");
+      if (event.type === "error") {
+        transcript.textContent = event.error?.message || "Realtime voice error";
+        setStatus("Voice error");
+      }
+    }
+
+    async function startVoice() {
+      const token = tokenInput.value.trim();
+      if (!token) { setStatus("Enter the private Iron Man token first"); return; }
+      localStorage.setItem(tokenStorageKey, token);
+      startButton.disabled = true;
+      tokenInput.disabled = true;
+      setStatus("Connecting…");
+
+      try {
+        peerConnection = new RTCPeerConnection();
+        peerConnection.ontrack = (event) => {
+          remoteAudio.srcObject = event.streams[0];
+          remoteAudio.play().catch(() => {});
+        };
+        peerConnection.onconnectionstatechange = () => {
+          if (peerConnection.connectionState === "connected") setStatus("Listening");
+          if (["failed", "disconnected", "closed"].includes(peerConnection.connectionState)) stopVoice();
+        };
+
+        microphone = await navigator.mediaDevices.getUserMedia({ audio: true });
+        microphone.getTracks().forEach((track) => peerConnection.addTrack(track, microphone));
+        dataChannel = peerConnection.createDataChannel("oai-events");
+        dataChannel.addEventListener("message", handleRealtimeEvent);
+
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        const response = await fetch("/realtime/session", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "Content-Type": "application/sdp"
+          },
+          body: offer.sdp
+        });
+        if (!response.ok) {
+          const detail = await response.json().catch(() => ({}));
+          throw new Error(detail.detail || `Voice setup returned ${response.status}`);
+        }
+        await peerConnection.setRemoteDescription({ type: "answer", sdp: await response.text() });
+        stopButton.disabled = false;
+      } catch (error) {
+        transcript.textContent = error.message;
+        setStatus("Could not start voice");
+        stopVoice();
+      }
+    }
+
+    function stopVoice() {
+      microphone?.getTracks().forEach((track) => track.stop());
+      dataChannel?.close();
+      peerConnection?.close();
+      microphone = undefined;
+      dataChannel = undefined;
+      peerConnection = undefined;
+      completedCalls.clear();
+      startButton.disabled = false;
+      stopButton.disabled = true;
+      tokenInput.disabled = false;
+      if (status.textContent !== "Could not start voice") setStatus("Stopped");
+    }
+
+    startButton.addEventListener("click", startVoice);
+    stopButton.addEventListener("click", stopVoice);
+    window.addEventListener("pagehide", stopVoice);
+  </script>
+</body>
+</html>
