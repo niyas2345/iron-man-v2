@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 from IronMan_Recovery.config import Settings
 from IronMan_Recovery.memory import ConversationMemory
@@ -76,7 +75,6 @@ class RecoveryEndpointTests(unittest.TestCase):
         self.original_orchestrator = app_module.orchestrator
         app_module.settings = Settings(
             api_token="recovery-token",
-            openai_api_key="openai-test-key",
         )
         app_module.orchestrator = IronManOrchestrator(app_module.settings)
         self.client = TestClient(app_module.app)
@@ -106,35 +104,17 @@ class RecoveryEndpointTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertIn("Start voice", response.text)
+        self.assertIn("Gemini Live", response.text)
         self.assertNotIn("recovery-token", response.text)
 
-    def test_realtime_session_requires_bearer_token(self) -> None:
+    def test_retired_realtime_session_points_to_gemini_live(self) -> None:
         response = self.client.post(
             "/realtime/session",
             headers={"Content-Type": "application/sdp"},
             content="v=0",
         )
-        self.assertEqual(response.status_code, 401)
-
-    def test_realtime_session_proxies_sdp_answer(self) -> None:
-        original_exchange = app_module._exchange_realtime_sdp
-        exchange = AsyncMock(return_value="v=0\r\na=answer")
-        app_module._exchange_realtime_sdp = exchange
-        try:
-            response = self.client.post(
-                "/realtime/session",
-                headers={
-                    "Authorization": "Bearer recovery-token",
-                    "Content-Type": "application/sdp",
-                },
-                content="v=0\r\na=offer",
-            )
-        finally:
-            app_module._exchange_realtime_sdp = original_exchange
-
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.text, "v=0\r\na=answer")
-        exchange.assert_awaited_once_with("v=0\r\na=offer")
+        self.assertEqual(response.status_code, 410)
+        self.assertIn("/voice", response.json()["detail"])
 
 
 if __name__ == "__main__":
