@@ -21,6 +21,8 @@ env:
   PROJECT_ID: project-2228bebf-326d-4183-a0d
   REGION: me-central1
   SERVICE: ironman-recovery
+  TOKEN_SECRET: ironman-api-token
+  TOKEN_SECRET_VERSION: "4"
   RUNTIME_SERVICE_ACCOUNT: ironman-core-runtime@project-2228bebf-326d-4183-a0d.iam.gserviceaccount.com
   DEPLOYER_SERVICE_ACCOUNT: github-ironman-deployer@project-2228bebf-326d-4183-a0d.iam.gserviceaccount.com
   WORKLOAD_IDENTITY_PROVIDER: projects/761020604913/locations/global/workloadIdentityPools/github/providers/ironman-recovery
@@ -76,7 +78,7 @@ jobs:
           service: ${{ env.SERVICE }}
           source: ./IronMan_Recovery
           secrets: |-
-            IRONMAN_API_TOKEN=ironman-api-token:latest
+            IRONMAN_API_TOKEN=${{ env.TOKEN_SECRET }}:${{ env.TOKEN_SECRET_VERSION }}
           env_vars: |-
             IRONMAN_APP_NAME=IronMan Recovery
             IRONMAN_APP_VERSION=${{ github.sha }}
@@ -91,20 +93,32 @@ jobs:
             --min-instances=0
             --max-instances=2
 
-      - name: Verify public endpoint requires the bearer token
+      - name: Verify protected round trip
         env:
           SERVICE_URL: ${{ steps.deploy.outputs.url }}
         run: |
+          token="$(gcloud secrets versions access "${TOKEN_SECRET_VERSION}" \
+            --project="${PROJECT_ID}" --secret="${TOKEN_SECRET}")"
+
           for attempt in {1..12}; do
-            status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            authorized_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --request POST "${SERVICE_URL}/command" \
+              --header "Authorization: Bearer ${token}" \
+              --header 'Content-Type: application/json' \
+              --data '{"text":"deployment check","session_id":"github-actions"}')"
+            unauthorized_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
               --request POST "${SERVICE_URL}/command" \
               --header 'Content-Type: application/json' \
               --data '{"text":"deployment check","session_id":"github-actions"}')"
-            if [[ "${status}" == "401" ]]; then
-              echo "IronMan Recovery is online and bearer authentication is active."
+
+            if [[ "${authorized_status}" == "200" && "${unauthorized_status}" == "401" ]]; then
+              unset token
+              echo "IronMan Recovery passed authenticated and unauthenticated checks."
               exit 0
             fi
-            echo "Attempt ${attempt}: expected HTTP 401, received ${status}; retrying..."
+            echo "Attempt ${attempt}: authorized=${authorized_status}, unauthorized=${unauthorized_status}; retrying..."
             sleep 5
           done
+
+          unset token
           exit 1
