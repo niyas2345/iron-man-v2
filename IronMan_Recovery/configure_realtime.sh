@@ -2,9 +2,11 @@
 set -euo pipefail
 
 PROJECT_ID="project-2228bebf-326d-4183-a0d"
-RUNTIME_SERVICE_ACCOUNT="ironman-core-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
-DEPLOYER_SERVICE_ACCOUNT="github-ironman-deployer@${PROJECT_ID}.iam.gserviceaccount.com"
-OPENAI_SECRET="openai-api-key"
+REGION="me-central1"
+SERVICE="ironman-recovery"
+MODEL="${GEMINI_LIVE_MODEL:-gemini-live-2.5-flash-native-audio}"
+MAX_SECONDS="${GEMINI_LIVE_MAX_SECONDS:-900}"
+MAX_ACTIVE="${GEMINI_LIVE_MAX_ACTIVE_SESSIONS:-1}"
 
 ACTIVE_ACCOUNT="$(gcloud auth list --filter=status:ACTIVE --format='value(account)' | head -n 1)"
 if [[ -z "${ACTIVE_ACCOUNT}" ]]; then
@@ -13,31 +15,10 @@ if [[ -z "${ACTIVE_ACCOUNT}" ]]; then
 fi
 
 gcloud config set project "${PROJECT_ID}" >/dev/null
-read -r -s -p "Paste the OpenAI API key (hidden): " OPENAI_KEY
-echo
-if [[ -z "${OPENAI_KEY}" ]]; then
-  echo "No key entered; nothing changed." >&2
-  exit 1
-fi
+gcloud run services update "${SERVICE}" \
+  --project="${PROJECT_ID}" \
+  --region="${REGION}" \
+  --update-env-vars="GOOGLE_CLOUD_PROJECT_ID=${PROJECT_ID},GEMINI_LIVE_LOCATION=global,GEMINI_LIVE_MODEL=${MODEL},GEMINI_LIVE_VOICE=Aoede,GEMINI_LIVE_MAX_SECONDS=${MAX_SECONDS},GEMINI_LIVE_MAX_ACTIVE_SESSIONS=${MAX_ACTIVE}" \
+  --quiet
 
-if gcloud secrets describe "${OPENAI_SECRET}" --project="${PROJECT_ID}" >/dev/null 2>&1; then
-  printf '%s' "${OPENAI_KEY}" | gcloud secrets versions add "${OPENAI_SECRET}" \
-    --project="${PROJECT_ID}" --data-file=- --quiet
-else
-  printf '%s' "${OPENAI_KEY}" | gcloud secrets create "${OPENAI_SECRET}" \
-    --project="${PROJECT_ID}" --replication-policy=automatic --data-file=- --quiet
-fi
-unset OPENAI_KEY
-
-for MEMBER in \
-  "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
-  "serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}"; do
-  gcloud secrets add-iam-policy-binding "${OPENAI_SECRET}" \
-    --project="${PROJECT_ID}" \
-    --member="${MEMBER}" \
-    --role="roles/secretmanager.secretAccessor" \
-    --condition=None \
-    --quiet >/dev/null
-done
-
-echo "OpenAI Realtime secret configured without printing the key."
+echo "Gemini Live settings updated on ${SERVICE}; no API key or secret was changed."
