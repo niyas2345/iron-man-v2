@@ -8,6 +8,7 @@ REGION="me-central1"
 SERVICE="ironman-recovery"
 SECRET="ironman-api-token"
 SECRET_VERSION="4"
+ACCESSOR_ROLE="roles/secretmanager.secretAccessor"
 RUNTIME_SERVICE_ACCOUNT="ironman-core-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 DEPLOYER_SERVICE_ACCOUNT="github-ironman-deployer@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -41,23 +42,34 @@ WORK_DIR="$(mktemp -d)"
 trap 'rm -rf "${WORK_DIR}"' EXIT
 BEFORE_POLICY="${WORK_DIR}/before.json"
 AFTER_POLICY="${WORK_DIR}/after.json"
+FINAL_POLICY="${WORK_DIR}/final.json"
 BACKUP_POLICY="${PWD}/ironman-secret-iam-backup-$(date -u +%Y%m%dT%H%M%SZ).json"
 
 gcloud secrets get-iam-policy "${SECRET}" --project="${PROJECT_ID}" --format=json >"${BEFORE_POLICY}"
 cp "${BEFORE_POLICY}" "${BACKUP_POLICY}"
 
-python3 - "${BEFORE_POLICY}" "${AFTER_POLICY}" "${REMOVE_DIRECT_ACCESS[@]}" <<'PY'
+python3 - "${BEFORE_POLICY}" "${AFTER_POLICY}" "${REMOVE_DIRECT_ACCESS[@]}" -- "${REQUIRED_ACCESSORS[@]}" <<'PY'
 import json
 import sys
 
-source, destination, *members_to_remove = sys.argv[1:]
+source, destination = sys.argv[1:3]
+separator = sys.argv.index("--")
+members_to_remove = sys.argv[3:separator]
+members_to_restrict = sys.argv[separator + 1:]
 with open(source, encoding="utf-8") as handle:
     policy = json.load(handle)
 
 blocked = set(members_to_remove)
+required = set(members_to_restrict)
 bindings = []
 for binding in policy.get("bindings", []):
-    members = [member for member in binding.get("members", []) if member not in blocked]
+    role = binding.get("role")
+    members = [
+        member
+        for member in binding.get("members", [])
+        if member not in blocked
+        and not (member in required and role != "roles/secretmanager.secretAccessor")
+    ]
     if members:
         binding["members"] = members
         bindings.append(binding)
@@ -73,22 +85,52 @@ if ! cmp -s "${BEFORE_POLICY}" "${AFTER_POLICY}"; then
     --project="${PROJECT_ID}" --quiet >/dev/null
 fi
 
-for MEMBER in "${REQUIRED_ACCESSORS[@]}"; do
-  # Remove an overly broad project-level accessor grant, if one exists.
+# Remove broad project-level Secret Accessor grants for every principal managed
+# here. Developer Connect's separate regional OAuth secret remains untouched.
+for MEMBER in "${REQUIRED_ACCESSORS[@]}" "${REMOVE_DIRECT_ACCESS[@]}"; do
   gcloud projects remove-iam-policy-binding "${PROJECT_ID}" \
     --member="${MEMBER}" \
-    --role="roles/secretmanager.secretAccessor" \
+    --role="${ACCESSOR_ROLE}" \
     --condition=None \
     --quiet >/dev/null 2>&1 || true
+done
 
+for MEMBER in "${REQUIRED_ACCESSORS[@]}"; do
   # Grant access only on the single IronMan token secret.
   gcloud secrets add-iam-policy-binding "${SECRET}" \
     --project="${PROJECT_ID}" \
     --member="${MEMBER}" \
-    --role="roles/secretmanager.secretAccessor" \
+    --role="${ACCESSOR_ROLE}" \
     --condition=None \
     --quiet >/dev/null
 done
+
+gcloud secrets get-iam-policy "${SECRET}" --project="${PROJECT_ID}" --format=json \
+  >"${FINAL_POLICY}"
+python3 - "${FINAL_POLICY}" "${REMOVE_DIRECT_ACCESS[@]}" -- "${REQUIRED_ACCESSORS[@]}" <<'PY'
+import json
+import sys
+
+separator = sys.argv.index("--")
+policy_path = sys.argv[1]
+blocked = set(sys.argv[2:separator])
+required = set(sys.argv[separator + 1:])
+with open(policy_path, encoding="utf-8") as handle:
+    policy = json.load(handle)
+
+roles_by_member = {}
+for binding in policy.get("bindings", []):
+    for member in binding.get("members", []):
+        roles_by_member.setdefault(member, set()).add(binding.get("role"))
+
+if any(member in roles_by_member for member in blocked):
+    raise SystemExit("Unrelated principal still has direct access to the IronMan secret.")
+
+expected = {"roles/secretmanager.secretAccessor"}
+for member in required:
+    if roles_by_member.get(member) != expected:
+        raise SystemExit(f"Unexpected direct secret roles for {member}.")
+PY
 
 gcloud run services update "${SERVICE}" \
   --project="${PROJECT_ID}" \
