@@ -13,7 +13,6 @@ PROVIDER_ID="ironman-recovery"
 DEPLOYER_ID="github-ironman-deployer"
 RUNTIME_SERVICE_ACCOUNT="ironman-core-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 TOKEN_SECRET="ironman-api-token"
-OPENAI_SECRET="openai-api-key"
 
 DEPLOYER_SERVICE_ACCOUNT="${DEPLOYER_ID}@${PROJECT_ID}.iam.gserviceaccount.com"
 COMPUTE_SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
@@ -45,6 +44,7 @@ gcloud services enable \
   iamcredentials.googleapis.com \
   secretmanager.googleapis.com \
   sts.googleapis.com \
+  aiplatform.googleapis.com \
   --project="${PROJECT_ID}" \
   --quiet
 
@@ -72,6 +72,12 @@ gcloud iam service-accounts add-iam-policy-binding "${RUNTIME_SERVICE_ACCOUNT}" 
   --project="${PROJECT_ID}" \
   --member="serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}" \
   --role="roles/iam.serviceAccountUser" \
+  --condition=None \
+  --quiet >/dev/null
+
+gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member="serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+  --role="roles/aiplatform.user" \
   --condition=None \
   --quiet >/dev/null
 
@@ -118,24 +124,6 @@ for MEMBER in \
     --condition=None \
     --quiet >/dev/null
 done
-
-echo "Checking the OpenAI Realtime API-key secret..."
-if gcloud secrets describe "${OPENAI_SECRET}" \
-  --project="${PROJECT_ID}" >/dev/null 2>&1; then
-  for MEMBER in \
-    "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
-    "serviceAccount:${DEPLOYER_SERVICE_ACCOUNT}"; do
-    gcloud secrets add-iam-policy-binding "${OPENAI_SECRET}" \
-      --project="${PROJECT_ID}" \
-      --member="${MEMBER}" \
-      --role="roles/secretmanager.secretAccessor" \
-      --condition=None \
-      --quiet >/dev/null
-  done
-else
-  echo "${OPENAI_SECRET} is not configured yet."
-  echo "Run IronMan_Recovery/configure_realtime.sh after this setup completes."
-fi
 
 echo "Creating the GitHub Workload Identity pool..."
 if ! gcloud iam workload-identity-pools describe "${POOL_ID}" \
@@ -188,4 +176,5 @@ gcloud iam service-accounts add-iam-policy-binding "${DEPLOYER_SERVICE_ACCOUNT}"
 echo
 echo "Google Cloud setup complete for ${GITHUB_REPOSITORY}."
 echo "No service-account key was created and no secret value was printed."
-echo "Wait five minutes for IAM propagation before merging the deployment PR."
+echo "Vertex AI Gemini Live uses the runtime service account; no API key is required."
+echo "Wait five minutes for IAM propagation before deploying."
