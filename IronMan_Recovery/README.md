@@ -4,7 +4,7 @@ This parallel app supports two voice loops over the same orchestrator:
 
 `Siri Dictate Text -> POST /command -> Iron Man reply -> Siri Speak Text`
 
-`iPhone browser microphone -> OpenAI Realtime (WebRTC) -> Iron Man tool -> spoken reply`
+`iPhone browser microphone -> Vertex AI Gemini Live -> Iron Man tool -> spoken reply`
 
 It does not import or modify the existing Iron Man application.
 
@@ -18,7 +18,6 @@ source IronMan_Recovery/.venv/bin/activate
 pip install -r IronMan_Recovery/requirements.txt
 
 export IRONMAN_API_TOKEN="replace-with-a-long-random-token"
-export OPENAI_API_KEY="replace-with-your-openai-api-key"
 export ANTHROPIC_API_KEY="replace-with-your-key"
 python -m uvicorn IronMan_Recovery.app:app --host 0.0.0.0 --port 8000
 ```
@@ -69,18 +68,22 @@ Open `https://YOUR-BACKEND/voice` in Safari, enter the private Iron Man token on
 and tap **Start voice**. The page stores that token only in the iPhone browser and
 never embeds it in source. iOS requires the first microphone start to be a user tap.
 
-ChatGPT/OpenAI Realtime is only the conversational audio interface. Its private
-function tool sends tasks to the existing `/command` endpoint, so the Iron Man
-orchestrator remains responsible for answering and executing requests.
+Gemini Live on Vertex AI is only the conversational audio interface. Its private
+function tool calls the existing Iron Man orchestrator, so Iron Man remains
+responsible for answering and executing requests. The server caps each live
+session at 15 minutes and allows one live session per Cloud Run instance.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `IRONMAN_API_TOKEN` | empty | Enables Bearer authentication when set. |
-| `OPENAI_API_KEY` | empty | Enables the server-created OpenAI Realtime session. |
-| `OPENAI_REALTIME_MODEL` | `gpt-realtime-2.1-mini` | Lower-cost Realtime voice interface; Iron Man still handles the work. |
-| `OPENAI_REALTIME_VOICE` | `marin` | Realtime spoken voice. |
+| `GOOGLE_CLOUD_PROJECT_ID` | empty | Vertex AI project used for Gemini Live. |
+| `GEMINI_LIVE_LOCATION` | `global` | Vertex AI location for Gemini Live. |
+| `GEMINI_LIVE_MODEL` | `gemini-live-2.5-flash-native-audio` | Gemini Live model. |
+| `GEMINI_LIVE_VOICE` | `Aoede` | Gemini Live voice. |
+| `GEMINI_LIVE_MAX_SECONDS` | `900` | Maximum length of one browser voice session. |
+| `GEMINI_LIVE_MAX_ACTIVE_SESSIONS` | `1` | Concurrent live sessions allowed per instance. |
 | `ANTHROPIC_API_KEY` | empty | Enables live language-model responses. |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5` | Selects the configured Anthropic model. |
 | `IRONMAN_MEMORY_TURNS` | `8` | Maximum stored messages per session. |
@@ -114,15 +117,14 @@ The setup script:
 - reuses the existing `ironman-core-runtime` service account and `ironman-api-token` secret; and
 - creates no downloadable service-account key.
 
-Before the first Realtime deployment, create the API-key secret without exposing it
-in shell history:
+Before the first Gemini Live deployment, configure the Vertex AI environment:
 
 ```bash
 bash IronMan_Recovery/configure_realtime.sh
 ```
 
-The script prompts for the key with hidden input and grants Secret Accessor only to
-the runtime and deployment service accounts.
+The script does not ask for or create an API key. Vertex AI uses the Cloud Run
+runtime service account, which receives only the Vertex AI User role.
 
 After IAM has had five minutes to propagate, merging the recovery pull request into `main` runs tests and deploys automatically. The workflow verifies that the public `/command` route returns `401` without the bearer token.
 
@@ -136,6 +138,6 @@ gcloud secrets versions access latest \
 
 Do not paste the resulting value into GitHub, an issue, a pull request, or chat. Put it only in your private Jellycuts source or Apple Shortcut.
 
-This version deliberately excludes WebSockets, SIP, Pushcut, and shortcut signing.
-Realtime audio uses browser-native WebRTC; cloud deployment adds no Google Cloud SDK
-to the application container.
+This version deliberately excludes SIP, Pushcut, and shortcut signing. Gemini Live
+audio uses a browser WebSocket bridge; cloud deployment adds no Google Cloud SDK to
+the application container.
