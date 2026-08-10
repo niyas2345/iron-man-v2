@@ -77,13 +77,16 @@ jobs:
           source: ./IronMan_Recovery
           secrets: |-
             IRONMAN_API_TOKEN=ironman-api-token:latest
-            OPENAI_API_KEY=openai-api-key:latest
           env_vars: |-
             IRONMAN_APP_NAME=IronMan Recovery
             IRONMAN_APP_VERSION=${{ github.sha }}
             IRONMAN_MEMORY_TURNS=8
-            OPENAI_REALTIME_MODEL=gpt-realtime-2.1-mini
-            OPENAI_REALTIME_VOICE=marin
+            GOOGLE_CLOUD_PROJECT_ID=${{ env.PROJECT_ID }}
+            GEMINI_LIVE_LOCATION=global
+            GEMINI_LIVE_MODEL=gemini-live-2.5-flash-native-audio
+            GEMINI_LIVE_VOICE=Aoede
+            GEMINI_LIVE_MAX_SECONDS=900
+            GEMINI_LIVE_MAX_ACTIVE_SESSIONS=1
           flags: >-
             --allow-unauthenticated
             --ingress=all
@@ -92,7 +95,8 @@ jobs:
             --cpu=1
             --memory=512Mi
             --min-instances=0
-            --max-instances=2
+            --max-instances=1
+            --timeout=900
 
       - name: Verify public endpoint requires the bearer token
         env:
