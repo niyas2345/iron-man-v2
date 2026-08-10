@@ -9,6 +9,7 @@ SERVICE="ironman-recovery"
 SECRET="ironman-api-token"
 SECRET_VERSION="4"
 ACCESSOR_ROLE="roles/secretmanager.secretAccessor"
+STALE_SECRET_VERSIONS=("1" "2" "3")
 RUNTIME_SERVICE_ACCOUNT="ironman-core-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 DEPLOYER_SERVICE_ACCOUNT="github-ironman-deployer@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -160,7 +161,19 @@ if [[ "${AUTH_STATUS}" != "200" || "${UNAUTH_STATUS}" != "401" ]]; then
   exit 1
 fi
 
+# Version 4 is now proven live. Disable only the three known superseded tokens;
+# disabling is recoverable and no secret value is read or printed here.
+for VERSION in "${STALE_SECRET_VERSIONS[@]}"; do
+  STATE="$(gcloud secrets versions describe "${VERSION}" \
+    --project="${PROJECT_ID}" --secret="${SECRET}" --format='value(state)')"
+  if [[ "${STATE}" == "ENABLED" ]]; then
+    gcloud secrets versions disable "${VERSION}" \
+      --project="${PROJECT_ID}" --secret="${SECRET}" --quiet >/dev/null
+  fi
+done
+
 echo "IronMan IAM hardening complete."
 echo "Authorized request: HTTP ${AUTH_STATUS}; unauthorized request: HTTP ${UNAUTH_STATUS}."
 echo "Cloud Run is pinned to ${SECRET}:${SECRET_VERSION}."
+echo "Superseded secret versions 1-3 are disabled; version 4 remains enabled."
 echo "IAM backup: ${BACKUP_POLICY}"
