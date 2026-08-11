@@ -35,6 +35,7 @@ class Settings:
     gcp_project_id: str = os.getenv("GCP_PROJECT_ID", "")
     gcp_region: str = os.getenv("GCP_REGION", "us-central1")
     antigravity_endpoint: str = os.getenv("ANTIGRAVITY_ENDPOINT", "")
+    api_key: str = os.getenv("IRON_MAN_API_KEY", "")
 
     # --- Mapping settings ---
     # Minimum fuzzy-match confidence (0-1) before we accept a catalog action

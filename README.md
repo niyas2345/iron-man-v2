@@ -9,7 +9,7 @@ is Google Cloud Run.
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8080
 ```
 
 Useful endpoints:
@@ -20,6 +20,7 @@ Useful endpoints:
 - `GET /api/system/migration/gcp` - GCP migration readiness.
 - `GET /api/system/legacy-blueprint` - recovered Thor/Loki operating rules for Iron Man V2.
 - `POST /api/voice/sessions` - open a realtime transcript-first voice session.
+- `POST /api/voice/command` - accept Siri dictation and return speakable JSON.
 - `GET /api/shortcuts/ask-iron-man.jelly` - ready-to-paste Jellycuts source for the iPhone voice shortcut.
 
 ## Recovered Thor/Loki Blueprint
@@ -46,12 +47,31 @@ using the local fallback.
 ## Deploy To Google Cloud Run
 
 ```bash
-gcloud builds submit --tag gcr.io/PROJECT_ID/iron-man-v2:latest
-gcloud run services replace deploy/cloudrun.service.yaml --region us-central1
+gcloud builds submit --tag gcr.io/PROJECT_ID/iron-man-v2:latest .
+gcloud run deploy iron-man-v2 \
+  --image gcr.io/PROJECT_ID/iron-man-v2:latest \
+  --region us-central1 \
+  --allow-unauthenticated \
+  --set-env-vars IRON_MAN_MEMORY_PATH=/tmp/iron_man_tasks.json \
+  --set-secrets IRON_MAN_API_KEY=iron-man-api-key:latest
 ```
 
-Replace `PROJECT_ID` in `deploy/cloudrun.service.yaml` before deployment. Live
-deployment requires GCP project permissions and service account access.
+The Cloud Run service must permit unauthenticated transport because Apple
+Shortcuts cannot perform Google IAM login. Application access is still protected
+by the `X-API-Key` shared secret. Create the Secret Manager secret first and grant
+the Cloud Run runtime service account `roles/secretmanager.secretAccessor`.
+
+## Install the Siri Shortcut
+
+1. Deploy the service and note its HTTPS URL.
+2. Open `https://SERVICE_URL/api/shortcuts/ask-iron-man.jelly`.
+3. Replace `REPLACE_WITH_IRON_MAN_API_KEY` with the secret value, then compile
+   the source in Jellycuts on the iPhone.
+4. Name the shortcut **Ask Iron Man**. Invoke it with “Siri, Ask Iron Man.”
+
+The shortcut dictates a command, posts JSON to `/api/voice/command`, extracts
+the JSON `response` field, and speaks it. Do not share or publish the compiled
+shortcut because it contains the shared secret.
 
 ## Shortcut Signing Service (macOS only)
 

@@ -29,10 +29,8 @@ class JellycutsBuilder:
         base_url: str,
     ) -> JellycutsBuildResponse:
         name = _shortcut_name(request.name)
-        endpoint = f"{_clean_base_url(request.service_url or base_url)}/api/iron-man/tasks"
+        endpoint = f"{_clean_base_url(request.service_url or base_url)}/api/voice/command"
         prompt = _jelly_string(request.command_prompt)
-        confirmation = _jelly_string(request.confirmation_text)
-
         jellycuts = f'''import Shortcuts
 #Color: red, #Icon: shortcuts
 
@@ -44,15 +42,17 @@ var command = dictateText(prompt: "{prompt}", language: "en-US", stopListening: 
 var ironManResponse = downloadURL(
   url: "{endpoint}",
   method: post,
-  headers: {{"Content-Type": "application/json"}},
+  headers: {{"Content-Type": "application/json", "X-API-Key": "REPLACE_WITH_IRON_MAN_API_KEY"}},
   requestBody: json({{
-    "request": "${{command}}",
+    "command": "${{command}}",
     "priority": "{request.priority}"
   }})
 )
 
+var spokenResponse = getDictionaryValue(dictionary: ironManResponse, key: "response")
+
 speakText(
-  "{confirmation}",
+  spokenResponse,
   waitUntilFinished: true,
   language: "en-US"
 )
@@ -65,6 +65,7 @@ speakText(
             install_steps=[
                 "Open Jellycuts on the iPhone.",
                 "Create or replace a shortcut with this source.",
+                "Replace REPLACE_WITH_IRON_MAN_API_KEY with the Cloud Run IRON_MAN_API_KEY secret.",
                 "Compile it into Apple Shortcuts and run it once to grant microphone/network permission.",
             ],
         )

@@ -170,6 +170,18 @@ class VoiceSessionIngestRequest(BaseModel):
     confidence: Optional[float] = Field(default=None, ge=0.0, le=1.0)
 
 
+class VoiceCommandRequest(BaseModel):
+    command: str = Field(..., min_length=1, max_length=4000)
+    priority: str = Field(default="normal", pattern="^(low|normal|high)$")
+
+
+class VoiceCommandResponse(BaseModel):
+    ok: bool = True
+    task_id: str
+    status: str
+    response: str
+
+
 class VoiceEventRecord(BaseModel):
     model_config = {"from_attributes": True}
 

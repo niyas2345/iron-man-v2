@@ -23,3 +23,5 @@ spec:
               value: antigravity
             - name: GCP_TARGET
               value: cloud-run
+            # Set IRON_MAN_API_KEY from Secret Manager during deployment; do
+            # not commit its value here. See README.md.

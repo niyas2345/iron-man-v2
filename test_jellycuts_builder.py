@@ -33,10 +33,12 @@ def test_jellycuts_builder_creates_ask_iron_man_voice_shortcut():
         finally:
             sys.path.remove(str(root))
 
-    assert build.endpoint == "https://iron-man.example.run.app/api/iron-man/tasks"
+    assert build.endpoint == "https://iron-man.example.run.app/api/voice/command"
     assert "var command = dictateText" in build.jellycuts
     assert "var ironManResponse = downloadURL" in build.jellycuts
     assert "method: post" in build.jellycuts
     assert "requestBody: json" in build.jellycuts
-    assert '"request": "${command}"' in build.jellycuts
+    assert '"command": "${command}"' in build.jellycuts
     assert '"priority": "normal"' in build.jellycuts
+    assert '"X-API-Key": "REPLACE_WITH_IRON_MAN_API_KEY"' in build.jellycuts
+    assert 'key: "response"' in build.jellycuts
