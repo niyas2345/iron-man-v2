@@ -62,6 +62,8 @@ Create a shortcut named **Iron Man Voice**. Its backend URL must be reachable fr
 7. From **Contents of URL**, get dictionary value `reply` and pass only that value to **Speak Text**.
 8. Get dictionary value `status`. If it equals `offline`, add **Stop This Shortcut**.
 
+`/command` is the canonical Siri endpoint. For existing shortcuts, `/api/voice/command` and `/api/iron-man/voice` are compatibility aliases and accept `text`, `transcript`, or `command` as the input key. Production rejects requests when `IRONMAN_API_TOKEN` is not mounted; the local bypass is explicit via `IRONMAN_ALLOW_INSECURE_LOCAL=true`.
+
 ## Use live Realtime voice
 
 Open `https://YOUR-BACKEND/voice` in Safari, enter the private Iron Man token once,

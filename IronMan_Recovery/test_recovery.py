@@ -99,6 +99,36 @@ class RecoveryEndpointTests(unittest.TestCase):
         self.assertEqual(set(payload), {"status", "reply", "speak"})
         self.assertEqual(payload["reply"], payload["speak"])
 
+    def test_legacy_payload_and_voice_path_are_accepted(self) -> None:
+        response = self.client.post(
+            "/api/iron-man/voice",
+            headers={"Authorization": "Bearer recovery-token"},
+            json={"transcript": "legacy voice request", "session_id": "iphone"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], "ok")
+        self.assertIn("legacy voice request", response.json()["reply"])
+
+    def test_x_api_key_compatibility_header_is_accepted(self) -> None:
+        response = self.client.post(
+            "/api/voice/command",
+            headers={"X-API-Key": "recovery-token"},
+            json={"command": "api key request"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("api key request", response.json()["reply"])
+
+    def test_missing_production_token_fails_closed(self) -> None:
+        app_module.settings = Settings()
+        app_module.orchestrator = IronManOrchestrator(app_module.settings)
+
+        response = self.client.post("/command", json={"text": "must be protected"})
+
+        self.assertEqual(response.status_code, 503)
+        self.assertIn("not configured", response.json()["detail"])
+
     def test_voice_page_contains_no_embedded_token(self) -> None:
         response = self.client.get("/voice")
 
