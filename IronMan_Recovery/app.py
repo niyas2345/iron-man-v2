@@ -84,7 +84,7 @@ def _require_bearer_token(
 
     candidate = x_api_key
     if not candidate:
-        scheme, separator, bearer = (authorization or "").strip().split(" ", 1) if " " in (authorization or "").strip() else ("", "", "")
+        scheme, separator, bearer = (authorization or "").strip().partition(" ")
         if scheme.lower() == "bearer" and separator == " ":
             candidate = bearer.strip()
 
