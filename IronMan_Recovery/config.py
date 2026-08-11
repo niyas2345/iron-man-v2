@@ -16,6 +16,13 @@ def _positive_int(name: str, default: int) -> int:
     return value
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
 def _temperature(name: str, default: float) -> float:
     raw = os.getenv(name, str(default))
     try:
@@ -33,6 +40,8 @@ class Settings:
     app_version: str = "1.0.0"
     owner_name: str = "Niyas Abdeen"
     api_token: str = ""
+    # Production fails closed when no token is mounted; local bypass is explicit.
+    allow_insecure_local: bool = False
     google_cloud_project_id: str = ""
     gemini_live_location: str = "global"
     gemini_live_model: str = "gemini-live-2.5-flash-native-audio"
@@ -56,6 +65,7 @@ settings = Settings(
     app_version=os.getenv("IRONMAN_APP_VERSION", "1.0.0"),
     owner_name=os.getenv("IRONMAN_OWNER_NAME", "Niyas Abdeen"),
     api_token=os.getenv("IRONMAN_API_TOKEN", ""),
+    allow_insecure_local=_env_bool("IRONMAN_ALLOW_INSECURE_LOCAL"),
     google_cloud_project_id=os.getenv(
         "GOOGLE_CLOUD_PROJECT_ID", os.getenv("GOOGLE_CLOUD_PROJECT", "")
     ),
