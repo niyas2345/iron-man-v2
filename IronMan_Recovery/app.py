@@ -12,7 +12,7 @@ from typing import Annotated
 
 from fastapi import FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .config import settings
 from .orchestrator import IronManOrchestrator, OrchestratorError
@@ -25,8 +25,21 @@ active_live_lock = asyncio.Lock()
 
 
 class VoiceRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=settings.max_text_characters)
+    # Accept the names used by the recovery, legacy, and Siri clients.
+    text: str | None = Field(default=None, min_length=1, max_length=settings.max_text_characters)
+    transcript: str | None = Field(default=None, min_length=1, max_length=settings.max_text_characters)
+    command: str | None = Field(default=None, min_length=1, max_length=settings.max_text_characters)
     session_id: str = Field(default="iphone", min_length=1, max_length=100)
+
+    @model_validator(mode="after")
+    def require_text(self) -> "VoiceRequest":
+        if not any((self.text, self.transcript, self.command)):
+            raise ValueError("one of text, transcript, or command is required")
+        return self
+
+    @property
+    def normalized_text(self) -> str:
+        return next(value for value in (self.text, self.transcript, self.command) if value)
 
 
 class VoiceResponse(BaseModel):
@@ -57,15 +70,25 @@ async def live_page() -> RedirectResponse:
 orchestrator = IronManOrchestrator()
 
 
-def _require_bearer_token(authorization: str | None) -> None:
+def _require_bearer_token(
+    authorization: str | None,
+    x_api_key: str | None = None,
+) -> None:
     if not settings.api_token:
-        return
-    scheme, separator, token = (authorization or "").partition(" ")
-    valid = (
-        separator == " "
-        and scheme.lower() == "bearer"
-        and hmac.compare_digest(token, settings.api_token)
-    )
+        if settings.allow_insecure_local:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="Bearer authentication is not configured",
+        )
+
+    candidate = x_api_key
+    if not candidate:
+        scheme, separator, bearer = (authorization or "").strip().split(" ", 1) if " " in (authorization or "").strip() else ("", "", "")
+        if scheme.lower() == "bearer" and separator == " ":
+            candidate = bearer.strip()
+
+    valid = bool(candidate) and hmac.compare_digest(candidate, settings.api_token)
     if not valid:
         raise HTTPException(status_code=401, detail="Invalid or missing bearer token")
 
@@ -268,15 +291,21 @@ async def realtime_live(websocket: WebSocket) -> None:
 
 
 @app.post("/command", response_model=VoiceResponse)
+@app.post("/api/voice/command", response_model=VoiceResponse, include_in_schema=False)
+@app.post("/api/iron-man/voice", response_model=VoiceResponse, include_in_schema=False)
 async def command(
     payload: VoiceRequest,
     authorization: Annotated[str | None, Header()] = None,
+    x_api_key: Annotated[str | None, Header()] = None,
 ) -> VoiceResponse:
-    """Accept one dictated transcript and return the text Siri should speak."""
-    _require_bearer_token(authorization)
+    """Accept a dictated transcript and return the text Siri should speak.
+
+    /command is canonical; the two hidden aliases keep existing shortcuts alive.
+    """
+    _require_bearer_token(authorization, x_api_key)
 
     try:
-        result = await orchestrator.respond(payload.text, payload.session_id)
+        result = await orchestrator.respond(payload.normalized_text, payload.session_id)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except OrchestratorError:
