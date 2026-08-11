@@ -6,8 +6,11 @@ import os
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 
+from app.auth import require_api_key
+from app.models.schemas import VoiceCommandRequest, VoiceCommandResponse
+from app.services.iron_man_orchestrator import iron_man_orchestrator
 from app.services.speech_adapter import (
     MissingCredentials,
     MockSpeechAdapter,
@@ -19,6 +22,21 @@ router = APIRouter(prefix="/api", tags=["voice"])
 
 # Simple in-memory session event store for demo/testing. Keys are session_id strings.
 _session_events: dict[str, list[dict[str, Any]]] = {}
+
+
+@router.post(
+    "/voice/command",
+    response_model=VoiceCommandResponse,
+    dependencies=[Depends(require_api_key)],
+)
+def voice_command(request: VoiceCommandRequest) -> VoiceCommandResponse:
+    """Accept Siri's dictated text and return a small, speakable JSON result."""
+    task = iron_man_orchestrator.accept(request.command, None, request.priority, [])
+    return VoiceCommandResponse(
+        task_id=task.task_id,
+        status=task.status,
+        response=task.response,
+    )
 
 
 def _store_event(session_id: str, event: dict[str, Any]) -> None:
@@ -108,4 +126,3 @@ async def voice_stream(websocket: WebSocket) -> None:
 def _set_adapter_factory(factory) -> None:
     global adapter_factory
     adapter_factory = factory
-
